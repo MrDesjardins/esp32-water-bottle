@@ -1,5 +1,6 @@
 # Summary
 This repository contains the code for a simple weight sensor that return how full a bottle (or any other container) is. It opens a web server that has a single endpoint that returns the percentage of how full a bottle is.
+
 # Hardware
 
 1. ESP32-WROOM-32D
@@ -73,3 +74,5 @@ Where `Vin` is the initial voltage (3.3v), `R1` is the constant 10K Ohm resistor
 The ESP32 receives the analog value with a value between 0-4095 that represent 0v to 3.3v. Zero means full presure (full resistance) and 4095 means no pressure (no resistance). The `minPressure` and `maxPressure` constants are used to determine the range of the pressure sensor and to calibrate by reading the serial minitor. 
 
 The heuristic uses a linear interpolation to convert the analog value to gram.
+
+To save power, the ESP32 goes to deep sleep mode after reading the weight. The ESP sends the information to another device using HTTP request. The value can be displayed by the other device which could be always running.
