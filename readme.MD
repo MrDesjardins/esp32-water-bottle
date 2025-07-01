@@ -49,6 +49,16 @@ The code is in the `main.ino`. Few points to note:
 2. The GPIO pin used is `34`. If you want to change it, you can change the `sensorPin` constant.
 3. The weight is gram is calculated using an heuristic, it is not accurate. For our case, it does not matter since we will register when the bottle is empty and full and then determine a range between 0-100% full.
 
+You need to add a `secrets.h` file in the root of the repository with the following content:
+
+```cpp
+#pragma once
+const char* ssid = "Your_SSID";
+const char* password = "Your_PASSWORD";
+```
+
+This file is ignored by git, so you can keep your credentials safe. The `ssid` and `password` are used to connect to the WiFi network.
+
 # How it works
 
 The DF9-16 adds resistance. The more weight, the more resistance. The circuit has two resistances: the constant 10K Ohm resistor and the variable resistance of the DF9-16. 
