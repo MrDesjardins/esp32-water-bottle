@@ -1,34 +1,80 @@
 # Summary
-This repository contains the code for a simple weight sensor that return how full a bottle (or any other container) is. It opens a web server that has a single endpoint that returns the percentage of how full a bottle is.
+This repository contains the code for a simple weight sensor that return how full a bottle (or any other container) is. The first ESP, sender, is the one collecting the water quantity. A second ESP, the receiver, listen for the sender and get the data to display it. Both ESP communicates using ESP-NOW for fast and low-power communication.
 
 # Hardware
 
+## Sender
 1. ESP32-WROOM-32D
-2. DF9-16 Film Pressure Sensor 20g-2Kg 
-3. 10K Ohm Resistor
+1. DF9-16 Film Pressure Sensor 20g-2Kg 
+1. 10K Ohm Resistor
 
-# Schematic
+## Receiver
+1. ESP32-WROOM-32D
+1. MP1584EN Mini Adjustable Buck Converter
+1. 3 AAA batteries holder
+1. SH1106 1.3" OLED Display
+1. 470 µF capacitor
+
+# Schematic For the ESP (Sender)
 
 The ESP uses a GPIO pin to read the analog value from the DF9-16 pressure sensor. One leg of the DF9-16 connects to the 3.3v while the other branch in two. The other leg has one direct connection to the GPIO pin (34) while the other goes through a 10K Ohm resistor to the ground. The schematic is shown below:
 
+The sender 
 
 ```
-   ┌───────┐         ┌────┐
-   │       │         │    │
- ┌─┤  DF9  ├─────────┤    │
- │ │       │         │    │
- │ └───────┘         │    │
-3.3v        GND─10kΩ─┘    │
- │           │            │
-┌┴───────────┴──┐         │
-│               │         │
-│    ESP-32     │         │
-│               │         │
-└──┬────────────┘         │
-   34                     │
-   │                      │
-   └──────────────────────┘
+┌────────────────┐
+│                │
+│     3x AAA     │
+│ +           -  │
+└┬────────────┬──┘
+┌┴────────────┴───┐
+│ IN+       IN-   │
+│    MP1584EN     │
+│ Out+      Out-  │
+└┬─────────────┬──┘
+ │             │
+ ├── +470µF- ──┤    // The capacitor is in a T shape between the MP1584EN and the ESP
+ │(long)(short)│
+┌┘             └──────────────┐ 
+│                             │
+│   ┌───────┐         ┌────┐  │
+│   │       │         │    │  │
+│ ┌─┤  DF9  ├─────────┤    │  │
+│ │ │       │         │    │  │
+│ │ └───────┘         │    │  │
+│3.3v        GND─10kΩ─┘    │  │
+│ │           │            │  │
+└─┴─┐         │            │  │
+  ┌─┴─────────┴───┐        │  │
+  │ 3.3V     GND  │        │  │
+  │     ESP-32    │        │  │
+  │ GND   34      │        │  │
+  └──┬────┬───────┘        │  │
+     │    │                │  │
+     │    │                │  │
+     │    └────────────────┘  │
+     └────────────────────────┘
 ```
+
+# Schematic For the ESP (Receiver)
+
+```
+      Power via USB
+           │
+┌──────────┴───────────────┐
+│                          │
+│         ESP-32           │
+│                          │
+│ 3.3     GND     22    21 │
+└┬─────────┬───────┬─────┬─┘
+┌┴─────────┴───────┴─────┴─┐
+│ VCC     GND     SCL  SDA │
+│                          │
+│        SSD1306           │
+│                          │
+└──────────────────────────┘
+```
+
 # Installation
 
 The code in this repository is coded for the ESP32-WROOM-32D module and requires the following software and drivers to be installed:
@@ -41,24 +87,21 @@ The code in this repository is coded for the ESP32-WROOM-32D module and requires
     ```
 3. In the Windows Device Manager. If the `Ports > Silicon Labs CP210x USB to UART Bridge (COMx)` is not installed, download and install the driver from https://www.silabs.com/developers/usb-to-uart-bridge-vcp-drivers
 4. Select the board ESP32-WROOM-DA Module
+5. You can plug both ESP with two differents USB cable. They will have different port.
+6. Install in Arduino under Tools > Manage Libraries the following libraries:
+   - `ESP-NOW` (comes with the ESP32 board support package)
+   - `WiFi` (comes with the ESP32 board support package)
+   - `ArduinoJson`
+   - [U8g2](https://github.com/olikraus/U8g2_Arduino)
 
 # Code
 
-The code is in the `main.ino`. Few points to note:
+The code is in the `sender.ino` and `receiver.ino`. Few points to note:
 
 1. The serial is set to `115200` baud rate. You need to set Arduino to the same baud rate to see the output.
 2. The GPIO pin used is `34`. If you want to change it, you can change the `sensorPin` constant.
 3. The weight is gram is calculated using an heuristic, it is not accurate. For our case, it does not matter since we will register when the bottle is empty and full and then determine a range between 0-100% full.
-
-You need to add a `secrets.h` file in the root of the repository with the following content:
-
-```cpp
-#pragma once
-const char* ssid = "Your_SSID";
-const char* password = "Your_PASSWORD";
-```
-
-This file is ignored by git, so you can keep your credentials safe. The `ssid` and `password` are used to connect to the WiFi network.
+4. The sender needs to have the MAC address of the receiver. You can find it in the serial monitor of the receiver. The MAC address is printed when the ESP32 starts.
 
 # How it works
 
@@ -75,4 +118,22 @@ The ESP32 receives the analog value with a value between 0-4095 that represent 0
 
 The heuristic uses a linear interpolation to convert the analog value to gram.
 
-To save power, the ESP32 goes to deep sleep mode after reading the weight. The ESP sends the information to another device using HTTP request. The value can be displayed by the other device which could be always running.
+To save power, the ESP32 goes to deep sleep mode after reading the weight. The ESP sends the information to another device using ESP now.
+
+# Battery
+The sender uses 3 AA batteries in series (1.5v x 3 = 4.5v). The MP1584EN buck converter converts the voltage down to 3.3v for the ESP32. 
+
+```
+1000 mAh @ 1.5 V (each)
+1.5 V × 1000 mAh = 1.5 Wh
+4.5 V × 1 Ah = 4.5 Wh
+ESP active energy (runs for 2 seconds):  160 mA × 3.3 V × (2/3600 h) ≈ 0.293 mWh
+ESP sleeping energy (30 minutes):  0.015 mA × 3.3 V × 0.4994 h ≈ 0.025 mWh
+Energy = 0.293 + 0.025 = ~0.318 mWh
+4.5 Wh / 0.318 mWh = ~14,150 cycles
+Buck converter efficiency is 85%: 4.5 Wh × 0.85 = ~3.825 Wh
+3.825 Wh / 0.318 mWh ≈ ~12,025 cycles
+12,025 × 0.5 h = ~6012 hours = ~250 days
+```
+
+Note that changing from 30 minutes to 1h to capture the water level would increase the battery life to about 15 months.

@@ -1,7 +1,7 @@
 #include <WiFi.h>
-#include "secrets.h"
+#include <esp_now.h>
+#include "../shared.h"
 #include "esp_sleep.h"
-#include <HTTPClient.h>
 
 float emptyWeight = 50.0;     // Weight when bottle is empty (adjust during calibration)
 float fullWeight = 550.0;     // Weight when bottle is full (adjust during calibration)
@@ -15,37 +15,33 @@ const float minPressure = 0.0;     // Analog value when no weight
 const float maxPressure = 3000.0;  // Analog value under known max weight
 const float maxWeight = 1000.0;    // Max weight in grams corresponding to maxPressure
 const int debug = 1; // 1 = debug, 0 = production mode
-const int sleepInSeconds = 60; // Sleep duration in seconds
+const int sleepInSeconds = 60*60; // Sleep duration in seconds (every 60 minutes)
+
+// ESP-NOW setup
+uint8_t receiverMAC[] = {0x08, 0xB6, 0x1F, 0xB8, 0x64, 0xE8};  // Replace with your receiver's MAC
+struct_message outgoingData;
 
 void setup() {
   Serial.begin(115200);
   analogReadResolution(12); // Set resolution to 12 bits (0–4095)
   btStop(); // Disable Bluetooth
 
-  // Connect to Wi-Fi
-  WiFi.begin(ssid, password);
-  Serial.print("Connecting to Wi-Fi");
-  
-  int attempts = 0;
-  while (WiFi.status() != WL_CONNECTED && attempts < 30) {
-    delay(500);
-    Serial.print(".");
-    attempts++;
+  Serial.println(WiFi.macAddress());
+  WiFi.mode(WIFI_STA);  // Must be in station mode
+  if (esp_now_init() != ESP_OK) {
+    Serial.println("Error initializing ESP-NOW");
+    return;
   }
-  
-  if (WiFi.status() == WL_CONNECTED) {
-    Serial.println("\nConnected!");
-    Serial.print("IP Address: ");
-    Serial.println(WiFi.localIP());
-  } else {
-    Serial.println("\nFailed to connect to Wi-Fi!");
-    if (debug == 0) {
-      Serial.println("No Wi-Fi in production mode, entering deep sleep anyway...");
-      esp_sleep_enable_timer_wakeup(sleepInSeconds * 1000000);
-      esp_deep_sleep_start();
-    }
-    return; // Exit setup if no Wi-Fi in debug mode
+  esp_now_peer_info_t peerInfo = {};
+  memcpy(peerInfo.peer_addr, receiverMAC, 6);
+  peerInfo.channel = 0;  // Auto
+  peerInfo.encrypt = false;
+
+  if (esp_now_add_peer(&peerInfo) != ESP_OK) {
+    Serial.println("Failed to add peer");
+    return;
   }
+
 
   if(debug == 0) {
     // Production mode: send data once then sleep
@@ -105,43 +101,17 @@ float calculatePercentage(float currentWeight) {
 }
 
 void sendData(float weight, float percentage) {
-  if (WiFi.status() != WL_CONNECTED) {
-    Serial.println("WiFi not connected, skipping data send");
-    return;
+
+  snprintf(outgoingData.json, sizeof(outgoingData.json), "{\"weight\":%.2f,\"percentage\":%.2f}", weight, percentage);
+
+  Serial.println("Sending JSON:");
+  Serial.println(outgoingData.json);
+
+  esp_err_t result = esp_now_send(receiverMAC, (uint8_t *)&outgoingData, sizeof(outgoingData));
+  if (result == ESP_OK) {
+    Serial.println("Sent with success");
+  } else {
+    Serial.println("Error sending data");
   }
 
-  HTTPClient http;
-  http.begin(targetUrl);
-  http.addHeader("Content-Type", "application/json");
-  http.setTimeout(10000); // 10 second timeout
-
-  String payload = "{\"weight\":" + String(weight, 1) + ",\"percentage\":" + String(percentage, 1) + "}";
-  
-  int attempts = 0;
-  int httpCode = -1;
-  
-  while (attempts < 3 && httpCode <= 0) {
-    httpCode = http.POST(payload);
-    
-    if (httpCode > 0) {
-      Serial.printf("HTTP Response code: %d\n", httpCode);
-      String response = http.getString();
-      if (response.length() > 0) {
-        Serial.println("Response: " + response);
-      }
-      break;
-    } else {
-      attempts++;
-      Serial.printf("HTTP POST failed (attempt %d/3): %s\n", attempts, http.errorToString(httpCode).c_str());
-      if (attempts < 3) {
-        delay(1000); // Wait 1 second before retry
-      }
-    }
-  }
-  
-  if (httpCode <= 0) {
-    Serial.println("All HTTP attempts failed");
-  }
-
-  http.end();
 }
