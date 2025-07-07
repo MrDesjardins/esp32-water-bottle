@@ -93,6 +93,7 @@ The code in this repository is coded for the ESP32-WROOM-32D module and requires
    - `WiFi` (comes with the ESP32 board support package)
    - `ArduinoJson`
    - [GxEPD2](https://github.com/ZinggJM/GxEPD2)
+7. Create a `secrets.h` file to set your wifi SSID and password for the receiver to get some Internet information (like time)
 
 # Code
 
@@ -120,7 +121,7 @@ The heuristic uses a linear interpolation to convert the analog value to gram.
 
 To save power, the ESP32 goes to deep sleep mode after reading the weight. The ESP sends the information to another device using ESP now.
 
-# Battery
+# Battery Sender
 The sender uses 3 AA batteries in series (1.5v x 3 = 4.5v). The MP1584EN buck converter converts the voltage down to 3.3v for the ESP32. 
 
 ```

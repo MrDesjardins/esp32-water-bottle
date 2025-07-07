@@ -2,6 +2,7 @@
 #include <esp_now.h>
 #include <WiFi.h>
 #include <../shared.h>
+#include <../secrets.h>
 #include <ArduinoJson.h>
 
 #include <GxEPD2_BW.h>
@@ -18,6 +19,35 @@ unsigned long lastUpdate = 0;
 const unsigned long updateInterval = 10000;
 float latestWeight = 0.0;
 float latestPercentage = 0.0;
+
+const char* ntpServer = "pool.ntp.org";
+const long gmtOffset_sec = -7 * 3600;  // Pacific Time (adjust for your time zone)
+const int daylightOffset_sec = 3600;   // 1 hour for daylight saving time
+
+void connectToWiFi() {
+  WiFi.begin(ssid, password);
+  Serial.print("Connecting to WiFi...");
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println(" connected");
+}
+
+void setupTime() {
+  configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
+}
+
+String getCurrentTimeString() {
+  struct tm timeinfo;
+  if (!getLocalTime(&timeinfo)) {
+    return "Time N/A";
+  }
+
+  char timeStr[20];
+  strftime(timeStr, sizeof(timeStr), "%H:%M:%S", &timeinfo);
+  return String(timeStr);
+}
 
 void OnDataRecv(const esp_now_recv_info_t *info, const uint8_t *data, int len) {
   memcpy(&incomingData, data, sizeof(incomingData));
@@ -41,7 +71,8 @@ void OnDataRecv(const esp_now_recv_info_t *info, const uint8_t *data, int len) {
 void setup() {
   Serial.begin(115200);
   WiFi.mode(WIFI_STA);
-
+  setupTime();
+  
   if (esp_now_init() != ESP_OK) {
     Serial.println("Error initializing ESP-NOW");
     return;
@@ -82,6 +113,8 @@ void initScreen()
 
 void updateDisplay()
 {
+  String currentTime = getCurrentTimeString();
+
   display.setFullWindow();
   display.firstPage();
   do {
@@ -92,19 +125,21 @@ void updateDisplay()
     display.print("Guinea Pig Water");
 
     // Time
-    time_t now = time(nullptr);
-    struct tm* t = localtime(&now);
-    char timeStr[20];
-    strftime(timeStr, sizeof(timeStr), "%H:%M:%S", t);
     display.setCursor(5, 40);
     display.print("Time: ");
-    display.print(timeStr);
+    display.print(currentTime);
 
     // Sensor values
     display.setCursor(5, 60);
+    int percent = (int)(latestPercentage + 0.5);  // Optional: round to nearest
     display.printf("Weight: %.2f g", latestWeight);
     display.setCursor(5, 80);
-    display.printf("Fill: %.2f%%", latestPercentage);
+    display.printf("Fill: %.0f%%", latestPercentage);
+    // display.print("Fill: ");
+    // display.print(percent);
+    // display.print(%);
+
+    
 
   } while (display.nextPage());
 }
