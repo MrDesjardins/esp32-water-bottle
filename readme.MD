@@ -12,7 +12,7 @@ This repository contains the code for a simple weight sensor that return how ful
 1. ESP32-WROOM-32D
 1. MP1584EN Mini Adjustable Buck Converter
 1. 3 AAA batteries holder
-1. SH1106 1.3" OLED Display
+1. [Waveshare 4.2inch E-Ink](https://www.waveshare.com/wiki/File:4.2inch-e-paper-b-specification.pdf)
 1. 470 µF capacitor
 
 # Schematic For the ESP (Sender)
@@ -70,7 +70,7 @@ The sender
 ┌┴─────────┴───────┴─────┴─┐
 │ VCC     GND     SCL  SDA │
 │                          │
-│        SSD1306           │
+│        Waveshare         │
 │                          │
 └──────────────────────────┘
 ```
@@ -92,7 +92,7 @@ The code in this repository is coded for the ESP32-WROOM-32D module and requires
    - `ESP-NOW` (comes with the ESP32 board support package)
    - `WiFi` (comes with the ESP32 board support package)
    - `ArduinoJson`
-   - [U8g2](https://github.com/olikraus/U8g2_Arduino)
+   - [GxEPD2](https://github.com/ZinggJM/GxEPD2)
 
 # Code
 
