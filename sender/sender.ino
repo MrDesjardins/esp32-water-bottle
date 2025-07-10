@@ -15,7 +15,7 @@ const float minPressure = 0.0;     // Analog value when no weight
 const float maxPressure = 3000.0;  // Analog value under known max weight
 const float maxWeight = 1000.0;    // Max weight in grams corresponding to maxPressure
 const int debug = 1; // 1 = debug, 0 = production mode
-const int sleepInSeconds = 60*60; // Sleep duration in seconds (every 60 minutes)
+const int sleepInSeconds = 60; // Sleep duration in seconds
 
 // ESP-NOW setup
 uint8_t receiverMAC[] = {0x08, 0xB6, 0x1F, 0xB8, 0x64, 0xE8};  // Replace with your receiver's MAC
@@ -57,7 +57,7 @@ void setup() {
 void loop() {
   if(debug == 1) {
     readData();
-    delay(500); // Quick delay for debugging
+    delay(2000); // Quick delay for debugging
   } 
 }
 
@@ -68,20 +68,23 @@ void readData() {
   float voltage = (analogValue / float(adcMax)) * vcc;
 
   // Simple linear mapping from pressure to weight (requires calibration!)
-  float weight = mapWeight(analogValue);
-  float percentage = calculatePercentage(weight);
+  float weight1 = mapWeight(analogValue);
+  float percentage1 = calculatePercentage(weight1);
+
+  float weight2 = 0;
+  float percentage2 = calculatePercentage(weight2);
 
   Serial.print("Analog Value: ");
   Serial.print(analogValue);
   Serial.print(" | Voltage: ");
   Serial.print(voltage, 3);
   Serial.print(" V | Approx. Weight: ");
-  Serial.print(weight, 1);
+  Serial.print(weight1, 1);
   Serial.print(" g | Percentage: ");
-  Serial.print(percentage, 1);
+  Serial.print(percentage1, 1);
   Serial.println(" %");
 
-  sendData(weight, percentage);
+  sendData(weight1, percentage1, voltage, weight2, percentage2);
 }
 
 float mapWeight(int analogValue) {
@@ -100,9 +103,9 @@ float calculatePercentage(float currentWeight) {
   return ((currentWeight - emptyWeight) / (fullWeight - emptyWeight)) * 100.0;
 }
 
-void sendData(float weight, float percentage) {
+void sendData(float weight1, float percentage1, float voltage, float weight2, float percentage2) {
 
-  snprintf(outgoingData.json, sizeof(outgoingData.json), "{\"weight\":%.2f,\"percentage\":%.2f}", weight, percentage);
+  snprintf(outgoingData.json, sizeof(outgoingData.json), "{\"weight1\":%.2f,\"percentage1\":%.2f,\"voltage\":%.2f,\"weight2\":%.2f,\"percentage2\":%.2f}", weight1, percentage1, voltage, weight2, percentage2);
 
   Serial.println("Sending JSON:");
   Serial.println(outgoingData.json);

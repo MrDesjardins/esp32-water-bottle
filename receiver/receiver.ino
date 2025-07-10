@@ -9,20 +9,24 @@
 #include <GxEPD2_3C.h>
 #include <GxEPD2_4C.h>
 #include <GxEPD2_7C.h>
+
 #include <Fonts/FreeMonoBold9pt7b.h>
+#include <Fonts/FreeMonoBold18pt7b.h>
+
 #include "GxEPD2_display_selection_new_style.h"
 #include "GxEPD2_display_selection.h"
 #include "GxEPD2_display_selection_added.h"
 
+const int debug = 1; // 1 = debug, 0 = production mode
 struct_message incomingData;
 unsigned long lastUpdate = 0;
-const unsigned long updateInterval = 10000;
-float latestWeight = 0.0;
-float latestPercentage = 0.0;
+const unsigned long updateInterval = debug == 1 ? 3000 : 30000;
 
-const char* ntpServer = "pool.ntp.org";
-const long gmtOffset_sec = -7 * 3600;  // Pacific Time (adjust for your time zone)
-const int daylightOffset_sec = 3600;   // 1 hour for daylight saving time
+float latestWeight1 = -1;
+float latestPercentage1 = -1;
+float latestWeight2 = -1;
+float latestPercentage2 = -1;
+bool hasChanged = true;
 
 void connectToWiFi() {
   WiFi.begin(ssid, password);
@@ -32,21 +36,6 @@ void connectToWiFi() {
     Serial.print(".");
   }
   Serial.println(" connected");
-}
-
-void setupTime() {
-  configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
-}
-
-String getCurrentTimeString() {
-  struct tm timeinfo;
-  if (!getLocalTime(&timeinfo)) {
-    return "Time N/A";
-  }
-
-  char timeStr[20];
-  strftime(timeStr, sizeof(timeStr), "%H:%M:%S", &timeinfo);
-  return String(timeStr);
 }
 
 void OnDataRecv(const esp_now_recv_info_t *info, const uint8_t *data, int len) {
@@ -61,17 +50,27 @@ void OnDataRecv(const esp_now_recv_info_t *info, const uint8_t *data, int len) {
     return;
   }
 
-  latestWeight = doc["weight"];
-  latestPercentage = doc["percentage"];
-
-  Serial.printf("Weight: %.2f g\n", latestWeight);
-  Serial.printf("Percentage: %.2f%%\n", latestPercentage);
+  float threshold = 2.0; // Allows small variation to not update the display
+  if( doc["percentage1"] >= latestPercentage1+threshold
+    || doc["percentage1"] <= latestPercentage1-threshold
+    || doc["percentage2"] >= latestPercentage2+threshold
+    || doc["percentage2"] <= latestPercentage2-threshold){
+    hasChanged = true;
+    latestWeight1 = doc["weight1"];
+    latestPercentage1 = doc["percentage1"];
+    latestWeight2 = doc["weight2"];
+    latestPercentage2 = doc["percentage2"];
+  }
+  Serial.printf("Data has changed: %d\n", hasChanged);
+  Serial.printf("Weight 1: %.2f g\n", latestWeight1);
+  Serial.printf("Percentage 1: %.2f%%\n", latestPercentage1);
+  Serial.printf("Weight 2: %.2f g\n", latestWeight2);
+  Serial.printf("Percentage 2: %.2f%%\n", latestPercentage2);
 }
 
 void setup() {
   Serial.begin(115200);
   WiFi.mode(WIFI_STA);
-  setupTime();
   
   if (esp_now_init() != ESP_OK) {
     Serial.println("Error initializing ESP-NOW");
@@ -79,7 +78,6 @@ void setup() {
   }
   Serial.print("My MAC address: ");
   Serial.println(WiFi.macAddress());
-
   esp_now_register_recv_cb(OnDataRecv);
 
   Serial.println("ESP-NOW receiver ready");
@@ -100,7 +98,6 @@ void initScreen()
   uint16_t x = ((display.width() - tbw) / 2) - tbx;
   uint16_t y = ((display.height() - tbh) / 2) - tby;
   display.setFullWindow();
-  display.setPartialWindow(0, 0, 50, 50);
   display.firstPage();
   do
   {
@@ -111,38 +108,57 @@ void initScreen()
   while (display.nextPage());
 }
 
+
+
 void updateDisplay()
 {
-  String currentTime = getCurrentTimeString();
+  if (!hasChanged){
+    return;
+  }
+  hasChanged = false;
+  int heightGauge = 200;
+  int widthGauge = 70;
+  int column1 = 5;
+  int column2 = 200;
 
+  int row1 = 30;
+  int row2 = 290;
+
+  int middle1 = ((column2-column1-widthGauge)/2);
+  int middle2 = column2+((400-column2-widthGauge)/2);
+
+  display.setFont(&FreeMonoBold18pt7b);  // Or your normal font
   display.setFullWindow();
   display.firstPage();
   do {
     display.fillScreen(GxEPD_WHITE);
 
     // Header
-    display.setCursor(5, 20);
-    display.print("Guinea Pig Water");
+    display.setCursor(column1, row1);
+    display.print("Bottle 1");
 
-    // Time
-    display.setCursor(5, 40);
-    display.print("Time: ");
-    display.print(currentTime);
+    display.setCursor(column2, row1);
+    display.print("Bottle 2");
 
     // Sensor values
-    display.setCursor(5, 60);
-    int percent = (int)(latestPercentage + 0.5);  // Optional: round to nearest
-    display.printf("Weight: %.2f g", latestWeight);
-    display.setCursor(5, 80);
-    display.printf("Fill: %.0f%%", latestPercentage);
-    // display.print("Fill: ");
-    // display.print(percent);
-    // display.print(%);
+    display.setCursor(middle1, row2);
+    display.printf("%.0f%%", latestPercentage1);  
 
-    
+    display.setCursor(middle2, row2);
+    display.printf("%.0f%%", latestPercentage2);  
 
+    // Gauges
+    drawGaugeRect(middle1, row1+30, heightGauge, widthGauge, latestPercentage1);
+    drawGaugeRect(middle2, row1+30, heightGauge, widthGauge, latestPercentage2);
   } while (display.nextPage());
 }
+
+void drawGaugeRect(int x, int y, int heightGauge, int widthGauge, int percentage) {
+  int filled = map(percentage, 0, 100, 0, heightGauge);
+  display.drawRect(x, y, widthGauge, heightGauge, GxEPD_BLACK);  // Gauge outline
+  display.fillRect(x + 1, y + heightGauge - filled, widthGauge - 2, filled, GxEPD_BLACK);  // Fill bar
+}
+
 
 void loop() {
   unsigned long now = millis();

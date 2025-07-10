@@ -12,7 +12,7 @@ This repository contains the code for a simple weight sensor that return how ful
 1. ESP32-WROOM-32D
 1. MP1584EN Mini Adjustable Buck Converter
 1. 3 AAA batteries holder
-1. [Waveshare 4.2inch E-Ink](https://www.waveshare.com/wiki/File:4.2inch-e-paper-b-specification.pdf)
+1. [Waveshare 4.2inch E-Ink](https://www.waveshare.com/wiki/File:4.2inch-e-paper-b-specification.pdf) (400x300 pixels)
 1. 470 µF capacitor
 
 # Schematic For the ESP (Sender)
@@ -65,15 +65,28 @@ The sender
 │                          │
 │         ESP-32           │
 │                          │
-│ 3.3     GND     22    21 │
+│                          │
 └┬─────────┬───────┬─────┬─┘
 ┌┴─────────┴───────┴─────┴─┐
-│ VCC     GND     SCL  SDA │
+│                          │
 │                          │
 │        Waveshare         │
 │                          │
 └──────────────────────────┘
 ```
+
+The pins between the ESP32 and Waveshare:
+|ESP32|Waveshare|Color|
+|---|---|---|
+|4|BUSY|Purple|
+|16|RST|White|
+|17|DC|Green|
+|5|CS|Orange|
+|18|CLK|Yellow|
+|23|DIN|Blue|
+|GND|GND|Brown|
+|3.3|VCC|Gray|
+
 
 # Installation
 
@@ -93,6 +106,8 @@ The code in this repository is coded for the ESP32-WROOM-32D module and requires
    - `WiFi` (comes with the ESP32 board support package)
    - `ArduinoJson`
    - [GxEPD2](https://github.com/ZinggJM/GxEPD2)
+   - [U8g2](https://github.com/olikraus/u8g2/wiki/u8g2install)
+   - [U8g2_for_Adafruit_GFX](https://github.com/olikraus/U8g2_for_Adafruit_GFX)
 7. Create a `secrets.h` file to set your wifi SSID and password for the receiver to get some Internet information (like time)
 
 # Code
