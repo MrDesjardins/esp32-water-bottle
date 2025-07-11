@@ -26,7 +26,7 @@ float latestWeight1 = -1;
 float latestPercentage1 = -1;
 float latestWeight2 = -1;
 float latestPercentage2 = -1;
-bool hasChanged = true;
+bool hasChanged = false;
 
 void connectToWiFi() {
   WiFi.begin(ssid, password);
