@@ -7,6 +7,7 @@ float emptyWeight = 50.0;     // Weight when bottle is empty (adjust during cali
 float fullWeight = 550.0;     // Weight when bottle is full (adjust during calibration)
 
 const int sensorPin = 34;  // Analog pin connected to voltage divider
+const int sensorPin2 = 35;  // Analog pin connected to voltage divider
 const float vcc = 3.3;     // ESP32 operating voltage
 const int adcMax = 4095;   // 12-bit ADC on ESP32
 
@@ -63,25 +64,37 @@ void loop() {
 
 void readData() {
   int analogValue = analogRead(sensorPin);
+  int analogValue2 = analogRead(sensorPin2);
   
   // Convert to voltage if needed
   float voltage = (analogValue / float(adcMax)) * vcc;
+  float voltage2 = (analogValue2 / float(adcMax)) * vcc;
 
   // Simple linear mapping from pressure to weight (requires calibration!)
   float weight1 = mapWeight(analogValue);
   float percentage1 = calculatePercentage(weight1);
 
-  float weight2 = 0;
+  float weight2 = mapWeight(analogValue2);
   float percentage2 = calculatePercentage(weight2);
 
-  Serial.print("Analog Value: ");
-  Serial.print(analogValue);
-  Serial.print(" | Voltage: ");
+  Serial.print("Analog Value1: ");
+  Serial.println(analogValue);
+  Serial.print(" | Voltage1: ");
   Serial.print(voltage, 3);
-  Serial.print(" V | Approx. Weight: ");
+  Serial.print(" V | Approx. Weight1: ");
   Serial.print(weight1, 1);
-  Serial.print(" g | Percentage: ");
+  Serial.print(" g | Percentage1: ");
   Serial.print(percentage1, 1);
+  Serial.println(" %");
+
+  Serial.print("Analog Value2: ");
+  Serial.print(analogValue2);
+  Serial.print(" | Voltage2: ");
+  Serial.print(voltage2, 3);
+  Serial.print(" V | Approx. Weight2: ");
+  Serial.print(weight2, 1);
+  Serial.print(" g | Percentage2: ");
+  Serial.print(percentage2, 1);
   Serial.println(" %");
 
   sendData(weight1, percentage1, voltage, weight2, percentage2);
